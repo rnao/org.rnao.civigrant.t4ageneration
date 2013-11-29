@@ -137,6 +137,7 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $this->assign('helpElements', array(
       'min_amount' => 1,
       'business_number' => 1,
+      'payer_name_1' => 1,
       'payer_name_3' => 1,
       'payer_province' => 1,
       'payer_country' => 1,
@@ -223,7 +224,108 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
 
   function postProcess() {
     $values = $this->exportValues();
+
+    // Get paid status ID
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'name' => 'grant_status',
+    );
+    $result = civicrm_api('OptionGroup', 'get', $params);
+    if ($result['is_error'] || empty($result['values'])) {
+      CRM_Core_Error::fatal(ts('No "grant_status" option group. Please refer to extension installation instructions.'));
+    }
+    $optionID = $result['values'][0]['id'];
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'option_group_id' => $optionID,
+      'name' => 'Paid',
+    );
+    $result = civicrm_api('OptionValue', 'get', $params);
+    if ($result['is_error'] || empty($result['values'])) {
+      CRM_Core_Error::fatal(ts('No "Paid" grant status option. Please refer to extension installation instructions.'));
+    }
+    $paidStatus = $result['values'][0]['value'];
+    $programID = $values['grant_program'];
+    $minAmount = $values['min_amount'];
+
+    // TODO: make SIN custom field generic
+    $query = "SELECT sum(g.amount_granted) as total, c.first_name, c.middle_name, c.last_name, " .
+        "i." . NEI_CIN_COLUMN . " as sin " .
+        "FROM civicrm_grant g " .
+        "INNER JOIN civicrm_contact c ON g.contact_id = c.id " .
+        "LEFT JOIN " . NEI_ID_TABLE . " i ON g.contact_id = i.entity_id " .
+        "WHERE g.grant_program_id = $programID and g.status_id = $paidStatus and g.amount_granted >= $minAmount " .
+        "GROUP by g.contact_id";
+
+    $dao = CRM_Core_DAO::executeQuery($query);
+
+    $config = CRM_Core_Config::singleton();
+
+    // Build XML
+    $xml = '<?xml version="1.0" encoding="UTF-8"?><Return></Return>';
+    $craFile = new SimpleXMLElement($xml);
+
+    $totalSlips = 0;  // count slips
+    $totalAmount = 0; // sum total amount
+    $t4 = $craFile->addChild('T4A');
+
+    while ($dao->fetch()) {
+      $totalSlips++;
+      $totalAmount += $dao->total;
+
+      $slip = $t4->addChild('T4ASlip');
+      $recipient = $slip->addChild('RCPNT_NM');
+      $recipient->addChild('snm', $dao->last_name);
+      $recipient->addChild('gvn_nm', $dao->first_name);
+      if (isset($dao->middle_name)) {
+        $recipient->addChild('init', substr($dao->middle_name, 0, 1));
+      }
+
+      $slip->addChild('sin', isset($dao->sin) ? $this->cleanSIN($dao->sin) : '000000000');
+      $slip->addChild('rcpnt_bn', '000000000RP0000');
+      $slip->addChild('RCPNT_CORP_NM');
+      // TODO: Add recipient address
+      $slip->addChild('bn', $values['business_number']);
+      $slip->addChild('rpt_tcd', 'O');
+
+      $other = $slip->addChild('OTH_INFO');
+      $other->addChild('brsy_amt', $dao->total);
+    }
+
+    $summary = $t4->addChild('T4ASummary');
+    $summary->addChild('bn', $values['business_number']);
+
+    $payer = $summary->addChild('PAYR_NM');
+    $payer->addChild('l1_nm', $values['payer_name_1']);
+    $this->addChild($payer, 'l2_nm', $values['payer_name_2']);
+    $this->addChild($payer, 'l3_nm', $values['payer_name_3']);
+
+    $payerAddr = $summary->addChild('PAYR_ADDR');
+    $this->addChild($payerAddr, 'addr_l1_txt', $values['payer_addr_1']);
+    $this->addChild($payerAddr, 'addr_l2_txt', $values['payer_addr_2']);
+    $this->addChild($payerAddr, 'cty_nm', $values['payer_city']);
+    $this->addChild($payerAddr, 'prov_cd', $values['payer_province']);
+    $this->addChild($payerAddr, 'cntry_cd', $values['payer_country']);
+    $this->addChild($payerAddr, 'pstl_cd', $values['payer_postal']);
+
+    $contact = $summary->addChild('CNTC');
+    $contact->addChild('cntc_nm', $values['contact_name']);
+    $contact->addChild('cntc_area_cd', $values['contact_area_code']);
+    $contact->addChild('cntc_extn_nbr', $values['contact_phone']);
+    $this->addChild($contact, 'cntc_extn_nbr', $values['contact_ext']);
+
+    $summary->addChild('tx_yr', $values['tax_year']);
+    $summary->addChild('slp_cnt', $totalSlips);
+    $summary->addChild('rpt_tcd', 'O');
+
+    $totals = $summary->addChild('T4A_TAMT');
+    $totals->addChild('rpt_tot_oth_info_amt', $totalAmount);
+
+    $output = $craFile->asXML($config->customFileUploadDir . 'test.xml');
     CRM_Core_Session::setStatus(ts('Done!'));
+
     parent::postProcess();
   }
 
@@ -273,5 +375,29 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
       }
     }
     return $elementNames;
+  }
+
+  /**
+   * Remove any dashes and spaces
+   *
+   * @param $sin
+   * @return string
+   */
+  function cleanSIN($sin) {
+    return preg_replace('/[ -]/', '', $sin);
+  }
+
+  /**
+   * Helper function that checks if value exist or is blank before adding it as a child
+   * to the given XML section
+   *
+   * @param $section object     XML parent to which we're adding children
+   * @param $name    string     Name of child
+   * @param $value   string     Value of child
+   */
+  function addChild(&$section, $name, $value) {
+    if (isset($value) && $value != '') {
+      $section->addChild($name, $value);
+    }
   }
 }

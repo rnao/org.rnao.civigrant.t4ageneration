@@ -36,6 +36,12 @@
   </p>
 {/htxt}
 
+{htxt id="payer_name_1"}
+  <p>
+    {ts}If "&" is used in the name area enter as "&amp;amp;".{/ts}
+  </p>
+{/htxt}
+
 {htxt id="payer_name_3"}
   <p>
     {ts}Use for "care of" or "attention".{/ts}
