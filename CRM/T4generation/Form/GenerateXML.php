@@ -122,6 +122,11 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
       array('size' => 4, 'maxlength' => 4),
       true
     );
+    $this->add(
+      'checkbox',
+      'inc_address',
+      ts('Include recipient\'s address?')
+    );
 
     $this->addButtons(array(
       array(
@@ -150,18 +155,8 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $result = civicrm_api('Domain', 'get', $params);
 
     if ($result['is_error'] == 0 and isset($result['values'][0])) {
-      switch (CRM_Core_PseudoConstant::countryIsoCode(
-        $result['values'][0]['domain_address']['country_id']
-      )) {
-        case 'CA':
-          $country = "CAN";
-          break;
-        case 'US':
-          $country = "USA";
-          break;
-        default:
-          $country = CRM_Core_PseudoConstant::countryIsoCode($result['values'][0]['domain_address']['country_id']);
-      }
+      $country = $this->getCountryISO($result['values'][0]['domain_address']['country_id']);
+
       $this->setDefaults(array(
         'payer_name_1' => $result['values'][0]['name'],
         'payer_addr_1' => $result['values'][0]['domain_address']['street_address'],
@@ -207,6 +202,7 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $this->setDefaults(array(
       'grant_program' => max(array_keys($programs)), // presumably use last grant program by default?
       'tax_year' => date('Y') - 1,  // most often last year (if prepared in January)
+      'inc_address' => 1,
     ));
 
     // Validation
@@ -252,7 +248,7 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
 
     // TODO: make SIN custom field generic
     $query = "SELECT sum(g.amount_granted) as total, c.first_name, c.middle_name, c.last_name, " .
-        "i." . NEI_CIN_COLUMN . " as sin " .
+        "i." . NEI_CIN_COLUMN . " as sin, g.contact_id " .
         "FROM civicrm_grant g " .
         "INNER JOIN civicrm_contact c ON g.contact_id = c.id " .
         "LEFT JOIN " . NEI_ID_TABLE . " i ON g.contact_id = i.entity_id " .
@@ -286,7 +282,37 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
       $slip->addChild('sin', isset($dao->sin) ? $this->cleanSIN($dao->sin) : '000000000');
       $slip->addChild('rcpnt_bn', '000000000RP0000');
       $slip->addChild('RCPNT_CORP_NM');
-      // TODO: Add recipient address
+
+      if (isset($values['inc_address']) && $values['inc_address']) {
+        // Get recipient address
+        $params = array(
+          'version' => 3,
+          'sequential' => 1,
+          'contact_id' => $dao->contact_id,
+          'is_primary' => 1,
+        );
+        $result = civicrm_api('Address', 'get', $params);
+        if ($result['is_error'] == 0 && !empty($result['values'])) {
+          $addr = $slip->addChild('RCPNT_ADDR');
+          $this->addChild($addr, 'addr_l1_txt', $result['values'][0]['street_address']);
+          $this->addChild($addr, 'cty_nm', $result['values'][0]['city']);
+          if (isset($result['values'][0]['state_province_id'])) {
+            $this->addChild($addr, 'prov_cd', CRM_Core_PseudoConstant::stateProvinceAbbreviation(
+                $result['values'][0]['state_province_id']
+            ));
+          }
+
+          if (isset($result['values'][0]['country_id'])) {
+            $country = $this->getCountryISO($result['values'][0]['country_id']);
+          }
+          $this->addChild($addr, 'cntry_cd', $country);
+
+          if (isset($result['values'][0]['postal_code'])) {
+            $this->addChild($addr, 'pstl_cd', $result['values'][0]['postal_code']);
+          }
+        }
+      }
+
       $slip->addChild('bn', $values['business_number']);
       $slip->addChild('rpt_tcd', 'O');
 
@@ -323,8 +349,14 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $totals = $summary->addChild('T4A_TAMT');
     $totals->addChild('rpt_tot_oth_info_amt', $totalAmount);
 
-    $output = $craFile->asXML($config->customFileUploadDir . 'test.xml');
+    $fileName = 'CRA_Grants_' . date('Ymdhis') . '.xml';
+
+    $output = $craFile->asXML($config->customFileUploadDir . $fileName);
     CRM_Core_Session::setStatus(ts('Done!'));
+    $directory = strstr($config->customFileUploadDir, 'sites');
+    global $base_url;
+    $filePath = $base_url . '/' . $directory . $fileName;
+    $this->assign('download', $filePath);
 
     parent::postProcess();
   }
@@ -399,5 +431,24 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     if (isset($value) && $value != '') {
       $section->addChild($name, $value);
     }
+  }
+
+  function getCountryISO($country) {
+    if ($country == null) {
+      return null;
+    }
+
+    switch (CRM_Core_PseudoConstant::countryIsoCode($country)) {
+      case 'CA':
+        $ret = "CAN";
+        break;
+      case 'US':
+        $ret = "USA";
+        break;
+      default:
+        $ret = CRM_Core_PseudoConstant::countryIsoCode($country);
+    }
+
+    return $ret;
   }
 }
