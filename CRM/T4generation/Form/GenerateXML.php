@@ -10,6 +10,9 @@ require_once 'CRM/Core/Form.php';
 class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
 
   function buildQuickForm() {
+    // Check if SIN custom field has been set and valid
+    $sinID = $this->returnCustomFieldID();
+
     $programs = CRM_Grant_BAO_GrantProgram::getGrantPrograms();
     // add form elements
     $this->add(
@@ -127,6 +130,10 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
       'inc_address',
       ts('Include recipient\'s address?')
     );
+    $this->add(
+      'hidden',
+      'sin_custom_field'
+    );
 
     $this->addButtons(array(
       array(
@@ -203,6 +210,7 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
       'grant_program' => max(array_keys($programs)), // presumably use last grant program by default?
       'tax_year' => date('Y') - 1,  // most often last year (if prepared in January)
       'inc_address' => 1,
+      'sin_custom_field' => $sinID,
     ));
 
     // Validation
@@ -246,14 +254,35 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $programID = $values['grant_program'];
     $minAmount = $values['min_amount'];
 
-    // TODO: make SIN custom field generic
+    // Get column name
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'id' => $values['sin_custom_field'],
+    );
+    $result = civicrm_api('CustomField', 'get', $params);
+
+    if ($result['count'] == 0) {  // Something has gone terrible wrong
+      CRM_Core_Error::fatal(ts('Make sure the T4Generation extension is configured correctly.'));
+    }
+    $column = $result['values'][0]['column_name'];
+
+    // Get table name
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'id' => $result['values'][0]['custom_group_id'],
+    );
+    $result = civicrm_api('CustomGroup', 'get', $params);
+    $table = $result['values'][0]['table_name'];
+
     $query = "SELECT sum(g.amount_granted) as total, c.first_name, c.middle_name, c.last_name, " .
-        "i." . NEI_CIN_COLUMN . " as sin, g.contact_id " .
-        "FROM civicrm_grant g " .
-        "INNER JOIN civicrm_contact c ON g.contact_id = c.id " .
-        "LEFT JOIN " . NEI_ID_TABLE . " i ON g.contact_id = i.entity_id " .
-        "WHERE g.grant_program_id = $programID and g.status_id = $paidStatus and g.amount_granted >= $minAmount " .
-        "GROUP by g.contact_id";
+      "i.$column as sin, g.contact_id " .
+      "FROM civicrm_grant g " .
+      "INNER JOIN civicrm_contact c ON g.contact_id = c.id " .
+      "LEFT JOIN $table i ON g.contact_id = i.entity_id " .
+      "WHERE g.grant_program_id = $programID and g.status_id = $paidStatus and g.amount_granted >= $minAmount " .
+      "GROUP by g.contact_id";
 
     $dao = CRM_Core_DAO::executeQuery($query);
 
@@ -450,5 +479,46 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     }
 
     return $ret;
+  }
+
+  /**
+   * Returns the SIN custom field ID.
+   * Errors out if this has not been configured.
+   *
+   * @return int The SIN custom field ID
+   */
+  static function returnCustomFieldID() {
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'name' => 'SIN number field label',
+    );
+    $result = civicrm_api('OptionValue', 'get', $params);
+    if ($result['count'] == 0) {
+      CRM_Core_Error::fatal('The extension doesn\'t appear to be installed correctly. Please re-install.');
+    }
+
+    $url = CRM_Utils_System::url( 'civicrm/admin/optionValue', 'reset=1&gid=' .
+      $result['values'][0]['option_group_id']);
+
+    if ($result['values'][0]['value'] == '<enter SIN custom field label>') {  // don't bother checking
+      CRM_Core_Error::fatal('The extension has not been properly configured.<br />' .
+        'Please <a href="' . $url . '">set the SIN custom field label</a>.');
+    }
+
+    // Get ID
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'label' => $result['values'][0]['value'],
+    );
+    $result = civicrm_api('CustomField', 'get', $params);
+
+    if ($result['count'] == 0) {
+      CRM_Core_Error::fatal('The SIN custom field value set is incorrect.<br />' .
+        'Please <a href="' . $url . '">set the SIN custom field label</a>.');
+    }
+
+    return $result['values'][0]['id'];
   }
 }

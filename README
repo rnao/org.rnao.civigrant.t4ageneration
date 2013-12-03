@@ -1,0 +1,6 @@
+TODO: This.
+
+For this extension to work, we have to ensure the core civigrant has the following:
+
+* Grant Status option group with a "Paid" status.
+* A known custom field with SIN
