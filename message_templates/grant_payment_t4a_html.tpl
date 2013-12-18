@@ -12,7 +12,7 @@
       <tr><td colspan="2" style="vertical-align: top; height: 138px;">
           <table width="100%"  cellpadding=0 cellspacing=0 style="font-size: 16px; width: 500px;"><tr>
               <td style="vertical-align: top; height: 138px; padding-top: 30px; width: 315px;">{$data.payer}</td>
-              <td style="vertical-align: top; height: 138px; width: 185px">{$data.t4_year}</td>
+              <td style="vertical-align: top; height: 138px; width: 185px">{$data.t4a_year}</td>
             </tr></table>
         </td></tr>
       <tr>
@@ -39,7 +39,7 @@
       <tr><td colspan="2" style="vertical-align: top; height: 138px;">
           <table width="100%"  cellpadding=0 cellspacing=0 style="font-size: 16px; width: 500px;"><tr>
               <td style="vertical-align: top; height: 138px; padding-top: 30px; width: 315px;">{$data.payer}</td>
-              <td style="vertical-align: top; height: 138px; width: 185px">{$data.t4_year}</td>
+              <td style="vertical-align: top; height: 138px; width: 185px">{$data.t4a_year}</td>
             </tr></table>
         </td></tr>
       <tr>

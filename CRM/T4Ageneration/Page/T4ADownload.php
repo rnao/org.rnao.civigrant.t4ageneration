@@ -2,7 +2,7 @@
 
 require_once 'CRM/Core/Page.php';
 
-class CRM_T4generation_Page_T4Download extends CRM_Core_Page {
+class CRM_T4Ageneration_Page_T4ADownload extends CRM_Core_Page {
   function run() {
     $this->_download = CRM_Utils_Request::retrieve('download', 'String', $this, FALSE);
 

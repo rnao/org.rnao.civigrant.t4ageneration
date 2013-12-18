@@ -7,7 +7,7 @@ require_once 'CRM/Core/Form.php';
  *
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC43/QuickForm+Reference
  */
-class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
+class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
 
   function buildQuickForm() {
     // Check if SIN custom field has been set and valid
@@ -218,9 +218,9 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $this->addRule('contact_ext', ts('Please enter a numeric phone extension.'), 'integer');
     $this->addRule('contact_area_code', ts('Please enter a numeric phone area code.'), 'integer');
 
-    $this->registerRule('phoneNumberMain', 'callback', 'validatePhoneNumber', 'CRM_T4generation_Form_GenerateXML');
+    $this->registerRule('phoneNumberMain', 'callback', 'validatePhoneNumber', 'CRM_T4Ageneration_Form_GenerateXML');
     $this->addRule('contact_phone', ts('Please enter a phone number formatted as xxx-xxxx.'), 'phoneNumberMain');
-    $this->registerRule('business_number', 'callback', 'validateBN', 'CRM_T4generation_Form_GenerateXML');
+    $this->registerRule('business_number', 'callback', 'validateBN', 'CRM_T4Ageneration_Form_GenerateXML');
     $this->addRule('business_number', ts('Please enter a valid business number.'), 'business_number');
 
     parent::buildQuickForm();
@@ -263,7 +263,7 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
     $result = civicrm_api('CustomField', 'get', $params);
 
     if ($result['count'] == 0) {  // Something has gone terrible wrong
-      CRM_Core_Error::fatal(ts('Make sure the T4Generation extension is configured correctly.'));
+      CRM_Core_Error::fatal(ts('Make sure the T4AGeneration extension is configured correctly.'));
     }
     $column = $result['values'][0]['column_name'];
 
@@ -458,7 +458,10 @@ class CRM_T4generation_Form_GenerateXML extends CRM_Core_Form {
    */
   function addChild(&$section, $name, $value) {
     if (isset($value) && $value != '') {
-      $section->addChild($name, $value);
+      $child = $section->addChild($name);
+      // Adding the value separately instead of using addChild(name, value)
+      // fixes an issue with "&" not being escaped.
+      $child->value = $value;
     }
   }
 

@@ -1,5 +1,5 @@
 INSERT INTO civicrm_option_group (name, title, description, is_active)
-    VALUES('t4_generation_settings', 'Grant T4 Generation Settings', 'Grant T4 Generation Settings', 1);
+    VALUES('t4a_generation_settings', 'Grant T4A Generation Settings', 'Grant T4A Generation Settings', 1);
 SET @id := LAST_INSERT_ID();
 
 INSERT INTO civicrm_option_value (option_group_id, label, value, name, description, weight, is_active)

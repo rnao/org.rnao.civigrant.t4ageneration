@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<extension key="org.rnao.civigrant.t4generation" type="module">
-  <file>t4generation</file>
-  <name>CiviGrant T4 generation</name>
+<extension key="org.rnao.civigrant.t4ageneration" type="module">
+  <file>t4ageneration</file>
+  <name>CiviGrant T4A generation</name>
   <description>This extension adds functionality to CiviGrant that allows for
-      T4 form printing and generation of xml files for the Canadian Revenue Agency.</description>
+      T4A form printing and generation of xml files for the Canadian Revenue Agency.</description>
   <license>AGPLv3</license>
   <maintainer>
     <author>Registered Nurses' Association of Ontario</author>
@@ -16,6 +16,6 @@
     <ver>4.3</ver>
   </compatibility>
   <civix>
-    <namespace>CRM/T4generation</namespace>
+    <namespace>CRM/T4Ageneration</namespace>
   </civix>
 </extension>

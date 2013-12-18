@@ -24,22 +24,22 @@
  +--------------------------------------------------------------------+
 *}
 
-{* this template is used for generating T4 forms  *}
+{* this template is used for generating T4A forms  *}
 <h3>{ts}Print T4s{/ts}</h3>
 <div class="crm-block crm-form-block crm-contribution_type-form-block">
   <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
   <table class="form-layout-compressed">
     <tr class="crm-grant_payment-form-block-t4-year">
-      <td class="label">{$form.t4_year.label}</td>
-      <td class="html-adjust">{$form.t4_year.html}</td>
+      <td class="label">{$form.t4a_payer.label}</td>
+      <td class="html-adjust">{$form.t4a_payer.html}</td>
     </tr>
     <tr class="crm-grant_payment-form-block-t4-payer">
-      <td class="label">{$form.t4_payer.label}</td>
-      <td class="html-adjust">{$form.t4_payer.html}</td>
+      <td class="label">{$form.t4a_year.label}</td>
+      <td class="html-adjust">{$form.t4a_year.html}</td>
     </tr>
     <tr class="crm-grant_payment-form-block-t4-box">
-      <td class="label">{$form.t4_box.label}</td>
-      <td class="html-adjust">{$form.t4_box.html}</td>
+      <td class="label">{$form.t4a_box.label}</td>
+      <td class="html-adjust">{$form.t4a_box.html}</td>
     </tr>
   </table>
 

@@ -37,9 +37,9 @@
 require_once 'CRM/Grant/Form/Task.php';
 
 /**
- * This class provides the functionality to print T4 receipts
+ * This class provides the functionality to print T4A receipts
  */
-class CRM_T4generation_Form_Task_T4 extends CRM_Grant_Form_Task
+class CRM_T4Ageneration_Form_Task_T4A extends CRM_Grant_Form_Task
 {
   /**
    * build all the data structures needed to build the form
@@ -55,7 +55,7 @@ class CRM_T4generation_Form_Task_T4 extends CRM_Grant_Form_Task
       CRM_Core_Error::fatal(ts('You do not have permission to access this page'));
     }
 
-    $sinID = CRM_T4generation_Form_GenerateXML::returnCustomFieldID();
+    $sinID = CRM_T4Ageneration_Form_GenerateXML::returnCustomFieldID();
 
     require_once "CRM/Core/PseudoConstant.php";
     require_once 'CRM/Core/OptionGroup.php';
@@ -93,7 +93,7 @@ class CRM_T4generation_Form_Task_T4 extends CRM_Grant_Form_Task
   function setDefaultValues()
   {
     $defaults = array();
-    $defaults['t4_year'] = date('Y') - 1;   // Supposedly last year?
+    $defaults['t4a_year'] = date('Y') - 1;   // Supposedly last year?
 
     return $defaults;
   }
@@ -115,13 +115,13 @@ class CRM_T4generation_Form_Task_T4 extends CRM_Grant_Form_Task
         $message .=  $this->_curency.' of '.count($this->_grantIds).' grants have different currency of same user. ';
       }
       if (count($this->_paidGrants)) {
-        $message .= 'Would you like to proceed to printing T4 forms for '.count($this->_paidGrants).' paid grants?';
+        $message .= 'Would you like to proceed to printing T4A forms for '.count($this->_paidGrants).' paid grants?';
         CRM_Core_Session::setStatus(ts($message), NULL, 'no-popup');
       }
 
-      $this->add('text', 't4_year', ts('Year to appear on T4 slips'), null, true);
-      $this->add('text', 't4_payer', ts('Payer\'s Name'), null, true);
-      $this->add('text', 't4_box', ts('Box #'), null, true);
+      $this->add('text', 't4a_year', ts('Year to appear on T4A slips'), null, true);
+      $this->add('text', 't4a_payer', ts('Payer\'s Name'), null, true);
+      $this->add('text', 't4a_box', ts('Box #'), null, true);
       $this->addButtons(array(
         array (
           'type' => 'next',
@@ -190,17 +190,17 @@ class CRM_T4generation_Form_Task_T4 extends CRM_Grant_Form_Task
       $totalAmount = 0;
       foreach ($details as $id => $value) {
         $grantPayment[$id]['contact_id'] = $id;
-        $grantPayment[$id]['t4_year'] = $values['t4_year'];
+        $grantPayment[$id]['t4a_year'] = $values['t4a_year'];
         $grantPayment[$id]['first_name'] = $this->getFirstName($id);
         $grantPayment[$id]['last_name'] = $this->getLastName($id);
         $grantPayment[$id]['payable_to_address'] =
             CRM_Utils_Array::value('address', CRM_Grant_BAO_GrantProgram::getAddress($id, NULL, true));
         $grantPayment[$id]['amount']  = $details[$id]['total_amount'];
-        $grantPayment[$id]['payer'] = $values['t4_payer'];
-        $grantPayment[$id]['box'] = $values['t4_box'];
+        $grantPayment[$id]['payer'] = $values['t4a_payer'];
+        $grantPayment[$id]['box'] = $values['t4a_box'];
 
         // Get contact's SIN
-        $sinID = CRM_T4generation_Form_GenerateXML::returnCustomFieldID();
+        $sinID = CRM_T4Ageneration_Form_GenerateXML::returnCustomFieldID();
         $params = array('entityID' => $id, 'custom_' . $sinID => 1);
         $sinResult = CRM_Core_BAO_CustomValueTable::getValues($params);
         // Insert spaces in SIN
@@ -253,7 +253,7 @@ class CRM_T4generation_Form_Task_T4 extends CRM_Grant_Form_Task
 
     // Redirect to XML file generation. Maybe redirecting back to the grant search page would be best,
     // but we'd need a way to trigger the download ideally without overloading any templates
-    CRM_Utils_System::redirect(CRM_Utils_System::url( 'civicrm/grant/t4download', 'reset=1&download='.$zipFile));
+    CRM_Utils_System::redirect(CRM_Utils_System::url( 'civicrm/grant/t4adownload', 'reset=1&download='.$zipFile));
 
     parent::postProcess();
   }
