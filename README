@@ -1,6 +1,8 @@
-TODO: This.
+Depends: JMA's Civigrant extension (https://github.com/JMAConsulting/biz.jmaconsulting.grantprograms)
 
-For this extension to work, we have to ensure the core civigrant has the following:
+TODO: Installation and usage instructions.
+
+For this extension to work, you have to ensure the core civigrant has the following:
 
 * Grant Status option group with a "Paid" status.
-* A known custom field with SIN
+* A custom field that holds a contact's SIN
