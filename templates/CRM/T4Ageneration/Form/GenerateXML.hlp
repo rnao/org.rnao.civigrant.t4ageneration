@@ -24,6 +24,13 @@
  +--------------------------------------------------------------------+
 *}
 
+{htxt id="grant_program"}
+  <p>
+    {ts}You can select multiple grant programs you'd like to include.<br />
+    Useful when you have more than one program spanning a taxation year.{/ts}
+  </p>
+{/htxt}
+
 {htxt id="min_amount"}
   <p>
     {ts}Minimum granted amount that needs to be included in the XML file. E.g. 500.{/ts}
@@ -62,5 +69,19 @@
     {ts}Use the alphabetic country codes as outlined in the International Standard (ISO)
       3166 Codes for the Representation of Names of Countries.<br />
       Always use CAN for Canada, and USA for the United States of America.{/ts}
+  </p>
+{/htxt}
+
+{htxt id="start_date"}
+  <p>
+    {ts}Enter a start and end date if you'd like to limit payments by date in addition to grant program.<br />
+    Useful when a grant program spans multiple years and doesn't correspond to a taxation year.{/ts}
+  </p>
+{/htxt}
+
+{htxt id="end_date"}
+  <p>
+    {ts}Enter a start and end date if you'd like to limit payments by date in addition to grant program.<br />
+      Useful when a grant program spans multiple years and doesn't correspond to a taxation year.{/ts}
   </p>
 {/htxt}

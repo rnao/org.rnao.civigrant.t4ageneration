@@ -14,7 +14,9 @@
             {/if}
           </span>
         </td>
-        <td><span>{$form.$element.html}</span></td>
+        <td>
+          <span>{$form.$element.html}</span>
+        </td>
       </tr>
     {/foreach}
 

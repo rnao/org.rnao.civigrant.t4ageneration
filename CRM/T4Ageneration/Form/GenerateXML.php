@@ -15,12 +15,32 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
 
     $programs = CRM_Grant_BAO_GrantProgram::getGrantPrograms();
     // add form elements
-    $this->add(
+    $element = $this->add(
       'select', // field type
       'grant_program', // field name
       ts('Grant Program'), // field label
       $programs, // list of options
       true // is required
+    );
+    $element->setMultiple(TRUE);
+
+    $this->add(
+      'date',
+      'start_date',
+      ts('Payment Start Date'),
+      array (
+        'maxYear' => date('Y'),
+        'addEmptyOption' => TRUE,
+      )
+    );
+    $this->add(
+      'date',
+      'end_date',
+      ts('Payment End Date'),
+      array (
+        'maxYear' => date('Y'),
+        'addEmptyOption' => TRUE,
+      )
     );
     $this->add(
       'text', // field type
@@ -147,6 +167,9 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
     $this->assign('elementNames', $this->getRenderableElementNames());
     // which elements have help
     $this->assign('helpElements', array(
+      'grant_program' => 1,
+      'start_date' => 1,
+      'end_date' => 1,
       'min_amount' => 1,
       'business_number' => 1,
       'payer_name_1' => 1,
@@ -173,7 +196,7 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
         'payer_province' => CRM_Core_PseudoConstant::stateProvinceAbbreviation(
               $result['values'][0]['domain_address']['state_province_id']
             ),
-        'payer_country' => $country
+        'payer_country' => $country,
       ));
     }
 
@@ -229,30 +252,44 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
   function postProcess() {
     $values = $this->exportValues();
 
-    // Get paid status ID
+    // Get payment status ID
     $params = array(
       'version' => 3,
       'sequential' => 1,
-      'name' => 'grant_status',
+      'name' => 'grant_payment_status',
     );
     $result = civicrm_api('OptionGroup', 'get', $params);
     if ($result['is_error'] || empty($result['values'])) {
-      CRM_Core_Error::fatal(ts('No "grant_status" option group. Please refer to extension installation instructions.'));
+      CRM_Core_Error::fatal(ts('No "grant_payment_status" option group. Please refer to extension installation instructions.'));
     }
     $optionID = $result['values'][0]['id'];
     $params = array(
       'version' => 3,
       'sequential' => 1,
       'option_group_id' => $optionID,
-      'name' => 'Paid',
+      'name' => 'Printed',
     );
     $result = civicrm_api('OptionValue', 'get', $params);
     if ($result['is_error'] || empty($result['values'])) {
-      CRM_Core_Error::fatal(ts('No "Paid" grant status option. Please refer to extension installation instructions.'));
+      CRM_Core_Error::fatal(ts('No "Printed" grant payment status option. Please refer to extension installation instructions.'));
     }
-    $paidStatus = $result['values'][0]['value'];
-    $programID = $values['grant_program'];
+    $paidStatus[] = $result['values'][0]['value'];
+
+    // Reprinted payment status
+    $params = array(
+      'version' => 3,
+      'sequential' => 1,
+      'option_group_id' => $optionID,
+      'name' => 'Reprinted',
+    );
+    $result = civicrm_api('OptionValue', 'get', $params);
+    if (!empty($result['values'])) {
+      $paidStatus[] = $result['values'][0]['value'];
+    }
+
+    $programID = implode(',',$values['grant_program']);
     $minAmount = $values['min_amount'];
+    $paid = implode(',', $paidStatus);  // payment status to include
 
     // Get column name
     $params = array(
@@ -276,13 +313,28 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
     $result = civicrm_api('CustomGroup', 'get', $params);
     $table = $result['values'][0]['table_name'];
 
-    $query = "SELECT sum(g.amount_granted) as total, c.first_name, c.middle_name, c.last_name, " .
-      "i.$column as sin, g.contact_id " .
-      "FROM civicrm_grant g " .
-      "INNER JOIN civicrm_contact c ON g.contact_id = c.id " .
-      "LEFT JOIN $table i ON g.contact_id = i.entity_id " .
-      "WHERE g.grant_program_id = $programID and g.status_id = $paidStatus and g.amount_granted >= $minAmount " .
-      "GROUP by g.contact_id";
+    if ($values['start_date']['d'] != '' && $values['start_date']['M'] != '' && $values['start_date']['Y'] != '' &&
+        $values['end_date']['d'] != '' && $values['end_date']['M'] != '' && $values['end_date']['Y'] != '') {
+      $startDate = $values['start_date']['Y'] . '-' . $values['start_date']['M'] . '-' . $values['start_date']['d'];
+      $endDate = $values['end_date']['Y'] . '-' . $values['end_date']['M'] . '-' . $values['end_date']['d'];
+    }
+
+    $query = "select * from " .
+        "(select a.contact_id, a.first_name, a.middle_name, a.last_name, a.sin, sum(a.amount) as total from " .
+        "(select DISTINCT p.id, p.contact_id as contact_id, c.first_name, c.middle_name, c.last_name, " .
+        "id.$column as sin, p.amount as amount from civicrm_payment p " .
+        "left join civicrm_contact c on p.contact_id = c.id " .
+        "left join civicrm_entity_payment ep on p.id = ep.payment_id " .
+        "left join civicrm_grant g on ep.entity_id = g.id " .
+        "left join $table id on c.id = id.entity_id " .
+        "where ep.entity_table = 'civicrm_grant' and g.grant_program_id in ($programID) " .
+        "and p.payment_status_id in ($paid) ";
+
+    if (isset ($startDate)) {
+      $query .= "and p.payment_date >= '" . $startDate . "' and p.payment_date <= '" . $endDate . "' ";
+    }
+    $query .= ") a group by a.contact_id) b " .
+        "where b.total >= $minAmount";
 
     $dao = CRM_Core_DAO::executeQuery($query);
 
