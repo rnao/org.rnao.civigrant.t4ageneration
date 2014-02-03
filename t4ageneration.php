@@ -102,21 +102,6 @@ function t4ageneration_civicrm_managed(&$entities) {
   return _t4ageneration_civix_civicrm_managed($entities);
 }
 
-function t4ageneration_civicrm_searchTasks($objectName, &$tasks) {
-  if ($objectName == 'grant' && !strstr($_GET['q'], 'payment/search')
-      && CRM_Core_Permission::check('create payments in CiviGrant')) {
-    // Make sure this hasn't fired yet
-    $key = max(array_keys($tasks));
-    if ($tasks[$key]['title'] != ts('Print T4A')) {
-      $tasks[$key + 1] = array(
-        'title' => ts('Print T4A'),
-        'class' => array('CRM_T4Ageneration_Form_Task_T4A'),
-        'result' => FALSE,
-      );
-    }
-  }
-}
-
 /**
  * Add navigation for XML generation under Grants menu
  *
@@ -138,11 +123,25 @@ function t4ageneration_civicrm_navigationMenu(&$params) {
         'url'        => 'civicrm/grant/genxml&reset=1',
         'permission' => 'access CiviGrant',
         'operator'   => NULL,
-        'separator'  => TRUE,
+        'separator'  => FALSE,
         'parentID'   => $grantsMenuID,
         'navID'      => $maxKey+1,
         'active'     => 1
       )
+    );
+
+    $params[$otherMenuID]['child'][$grantsMenuID]['child'][$maxKey+2] =  array (
+        'attributes' => array (
+            'label'      => 'Generate T4A Forms',
+            'name'       => 'Generate T4A Forms',
+            'url'        => 'civicrm/grant/gent4a&reset=1',
+            'permission' => 'access CiviGrant',
+            'operator'   => NULL,
+            'separator'  => FALSE,
+            'parentID'   => $grantsMenuID,
+            'navID'      => $maxKey+2,
+            'active'     => 1
+        )
     );
   }
 }

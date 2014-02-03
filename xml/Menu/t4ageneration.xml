@@ -6,6 +6,12 @@
     <title>Generate CRA XML</title>
     <access_arguments>access CiviCRM</access_arguments>
   </item>
+    <item>
+        <path>civicrm/grant/gent4a</path>
+        <page_callback>CRM_T4Ageneration_Form_GenerateT4A</page_callback>
+        <title>Generate T4A Forms</title>
+        <access_arguments>access CiviCRM</access_arguments>
+    </item>
   <item>
     <path>civicrm/grant/t4adownload</path>
     <page_callback>CRM_T4Ageneration_Page_T4ADownload</page_callback>

@@ -26,21 +26,22 @@
 
 {* this template is used for generating T4A forms  *}
 <h3>{ts}Print T4s{/ts}</h3>
+
 <div class="crm-block crm-form-block crm-contribution_type-form-block">
-  <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="top"}</div>
-  <table class="form-layout-compressed">
-    <tr class="crm-grant_payment-form-block-t4-year">
-      <td class="label">{$form.t4a_payer.label}</td>
-      <td class="html-adjust">{$form.t4a_payer.html}</td>
+  <table class="form-layout">
+  {foreach from=$elementNames item=element}
+    <tr>
+      <td class="t4a-label"><span>{$form.$element.label}
+          {if isset($helpElements[$element]) }
+            {help id=$element title=$form.$element.label}
+          {/if}
+          </span>
+      </td>
+      <td class="t4a-element">
+        <span>{$form.$element.html}</span>
+      </td>
     </tr>
-    <tr class="crm-grant_payment-form-block-t4-payer">
-      <td class="label">{$form.t4a_year.label}</td>
-      <td class="html-adjust">{$form.t4a_year.html}</td>
-    </tr>
-    <tr class="crm-grant_payment-form-block-t4-box">
-      <td class="label">{$form.t4a_box.label}</td>
-      <td class="html-adjust">{$form.t4a_box.html}</td>
-    </tr>
+  {/foreach}
   </table>
 
   <div class="crm-submit-buttons">{include file="CRM/common/formButtons.tpl" location="botttom"}</div>
