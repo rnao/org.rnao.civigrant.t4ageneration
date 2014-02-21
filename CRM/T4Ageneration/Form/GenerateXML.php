@@ -354,15 +354,14 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
 
       $slip = $t4->addChild('T4ASlip');
       $recipient = $slip->addChild('RCPNT_NM');
-      $recipient->addChild('snm', $dao->last_name);
-      $recipient->addChild('gvn_nm', $dao->first_name);
-      if (isset($dao->middle_name)) {
+      $recipient->addChild('snm', substr($dao->last_name, 0, 20));
+      $recipient->addChild('gvn_nm', substr($dao->first_name, 0, 12));
+      if (isset($dao->middle_name) && $dao->middle_name != '') {
         $recipient->addChild('init', substr($dao->middle_name, 0, 1));
       }
 
       $slip->addChild('sin', isset($dao->sin) ? $this->cleanSIN($dao->sin) : '000000000');
       $slip->addChild('rcpnt_bn', '000000000RP0000');
-      $slip->addChild('RCPNT_CORP_NM');
 
       if (isset($values['inc_address']) && $values['inc_address']) {
         // Get recipient address
@@ -375,7 +374,10 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
         $result = civicrm_api('Address', 'get', $params);
         if ($result['is_error'] == 0 && !empty($result['values'])) {
           $addr = $slip->addChild('RCPNT_ADDR');
-          $this->addChild($addr, 'addr_l1_txt', $result['values'][0]['street_address']);
+          $this->addChild($addr, 'addr_l1_txt', substr($result['values'][0]['street_address'], 0, 30));
+          if (strlen($result['values'][0]['street_address']) > 30) {
+            $this->addChild($addr, 'addr_l2_txt', substr($result['values'][0]['street_address'], 30, 30));
+          }
           $this->addChild($addr, 'cty_nm', $result['values'][0]['city']);
           if (isset($result['values'][0]['state_province_id'])) {
             $this->addChild($addr, 'prov_cd', CRM_Core_PseudoConstant::stateProvinceAbbreviation(
@@ -420,8 +422,8 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
     $contact = $summary->addChild('CNTC');
     $contact->addChild('cntc_nm', $values['contact_name']);
     $contact->addChild('cntc_area_cd', $values['contact_area_code']);
-    $contact->addChild('cntc_extn_nbr', $values['contact_phone']);
-    $this->addChild($contact, 'cntc_extn_nbr', $values['contact_ext']);
+    $contact->addChild('cntc_phn_nbr', $values['contact_phone']);
+    $this->addChild($contact, 'cntc_phn_nbr', $values['contact_ext']);
 
     $summary->addChild('tx_yr', $values['tax_year']);
     $summary->addChild('slp_cnt', $totalSlips);
@@ -432,7 +434,16 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
 
     $fileName = 'CRA_Grants_' . date('Ymdhis') . '.xml';
 
-    $output = $craFile->asXML($config->customFileUploadDir . $fileName);
+    // Format XML
+    $dom = dom_import_simplexml($craFile)->ownerDocument;
+    $dom->formatOutput = true;
+    $formattedXML = $dom->saveXML();
+
+    $fp = fopen($config->customFileUploadDir . $fileName, 'w+');
+    fwrite($fp, $formattedXML);
+    fclose($fp);
+
+    //$output = $craFile->asXML($config->customFileUploadDir . $fileName);
     CRM_Core_Session::setStatus(ts('Done!'));
     $directory = strstr($config->customFileUploadDir, 'sites');
     global $base_url;
@@ -510,10 +521,8 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
    */
   function addChild(&$section, $name, $value) {
     if (isset($value) && $value != '') {
-      $child = $section->addChild($name);
-      // Adding the value separately instead of using addChild(name, value)
-      // fixes an issue with "&" not being escaped.
-      $child->value = $value;
+      $value = str_replace('&', '&#038;', $value);
+      $section->addChild($name, $value);
     }
   }
 
