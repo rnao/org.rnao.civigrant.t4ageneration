@@ -85,3 +85,16 @@
       Useful when a grant program spans multiple years and doesn't correspond to a taxation year.{/ts}
   </p>
 {/htxt}
+
+{htxt id="sbmt_ref_id"}
+  <p>
+    {ts}This is a unique number that is created by the transmitter to identify each submission filed.{/ts}
+  </p>
+{/htxt}
+
+{htxt id="transmitter_number"}
+  <p>
+    {ts}Obtained from the CRA.<br />
+    MM + 6 numeric, example: MM555555.{/ts}
+  </p>
+{/htxt}

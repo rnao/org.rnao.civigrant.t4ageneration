@@ -24,6 +24,8 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
     );
     $element->setMultiple(TRUE);
 
+    // TODO: Make date selectors calendar popups instead
+    // Initial attempt at that caused other issues with the form so it was abandoned at the time.
     $this->add(
       'date',
       'start_date',
@@ -55,6 +57,33 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
       ts('Business number'), // field label
       array('size' => 15, 'maxlength' => 15),
       true // is required
+    );
+    $this->add(
+        'text',
+        'transmitter_number',
+        ts('Transmitter number'),
+        array('size' => 8, 'maxlength' => 8),
+        true // is required
+    );
+    $this->add(
+        'text',
+        'sbmt_ref_id',
+        ts('Submission reference ID'),
+        array('size' => 8, 'maxlength' => 8),
+        true // is required
+    );
+    $this->add(
+        'select',
+        'language',
+        ts('Language'),
+        array('E' => 'English', 'F' => 'French'),
+        true // is required
+    );
+    $this->add(
+        'select',
+        'report_type',
+        ts('Report Type'),
+        array('O' => 'Original', 'A' => 'Amended')
     );
     $this->add(
       'text', // field type
@@ -139,6 +168,13 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
       array('size' => 5, 'maxlength' => 5)
     );
     $this->add(
+        'text',
+        'contact_email',
+        ts('Contact Email'),
+        array('size' => 30, 'maxlength' => 60),
+        true
+    );
+    $this->add(
       'text',
       'tax_year',
       ts('Taxation year'),
@@ -176,6 +212,8 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
       'payer_name_3' => 1,
       'payer_province' => 1,
       'payer_country' => 1,
+      'sbmt_ref_id' => 1,
+      'transmitter_number' => 1,
     ));
 
     $params = array(
@@ -187,17 +225,26 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
     if ($result['is_error'] == 0 and isset($result['values'][0])) {
       $country = $this->getCountryISO($result['values'][0]['domain_address']['country_id']);
 
-      $this->setDefaults(array(
-        'payer_name_1' => $result['values'][0]['name'],
-        'payer_addr_1' => $result['values'][0]['domain_address']['street_address'],
-        'payer_addr_2' => $result['values'][0]['domain_address']['supplemental_address_1'],
-        'payer_city' => $result['values'][0]['domain_address']['city'],
-        'payer_postal' => $result['values'][0]['domain_address']['postal_code'],
-        'payer_province' => CRM_Core_PseudoConstant::stateProvinceAbbreviation(
-              $result['values'][0]['domain_address']['state_province_id']
-            ),
-        'payer_country' => $country,
-      ));
+      $defaults = array(
+          'payer_addr_1' => $result['values'][0]['domain_address']['street_address'],
+          'payer_addr_2' => $result['values'][0]['domain_address']['supplemental_address_1'],
+          'payer_city' => $result['values'][0]['domain_address']['city'],
+          'payer_postal' => $result['values'][0]['domain_address']['postal_code'],
+          'payer_province' => CRM_Core_PseudoConstant::stateProvinceAbbreviation(
+                  $result['values'][0]['domain_address']['state_province_id']
+              ),
+          'payer_country' => $country,
+      );
+
+      // Split payer name if too long
+      if (strlen($result['values'][0]['name']) > 30) {
+        $defaults['payer_name_1'] = substr($result['values'][0]['name'], 0, 30);
+        $defaults['payer_name_2'] = substr($result['values'][0]['name'], 30);
+      } else {
+        $defaults['payer_name_1'] = $result['values'][0]['name'];
+      }
+
+      $this->setDefaults($defaults);
     }
 
     // Get current contact info to prefill their details
@@ -341,12 +388,43 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
     $config = CRM_Core_Config::singleton();
 
     // Build XML
-    $xml = '<?xml version="1.0" encoding="UTF-8"?><Return></Return>';
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>' .
+      '<Submission xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="layout-topologie.xsd">' .
+      '</Submission>';
     $craFile = new SimpleXMLElement($xml);
 
     $totalSlips = 0;  // count slips
     $totalAmount = 0; // sum total amount
-    $t4 = $craFile->addChild('T4A');
+
+    $t619 = $craFile->addChild('T619');
+
+    $t619->addChild('sbmt_ref_id', $values['sbmt_ref_id']);
+    $t619->addChild('rpt_tcd', $values['report_type']);
+    $t619->addChild('trnmtr_nbr', $values['transmitter_number']);
+    $t619->addChild('summ_cnt', 1); // How many summaries in this file. Should be 1?
+    $t619->addChild('lang_cd', $values['language']);
+
+    $trn_name = $t619->addChild('TRNMTR_NM');
+    $trn_name->addChild('l1_nm', $values['payer_name_1']);
+    $this->addChild($trn_name, 'l2_nm', $values['payer_name_2']);
+
+    $trn_addr = $t619->addChild('TRNMTR_ADDR');
+    $this->addChild($trn_addr, 'addr_l1_txt', $values['payer_addr_1']);
+    $this->addChild($trn_addr, 'addr_l2_txt', $values['payer_addr_2']);
+    $this->addChild($trn_addr, 'cty_nm', $values['payer_city']);
+    $this->addChild($trn_addr, 'prov_cd', $values['payer_province']);
+    $this->addChild($trn_addr, 'cntry_cd', $values['payer_country']);
+    $this->addChild($trn_addr, 'pstl_cd', $values['payer_postal']);
+
+    $cntc = $t619->addChild('CNTC');
+    $cntc->addChild('cntc_nm', $values['contact_name']);
+    $cntc->addChild('cntc_area_cd', $values['contact_area_code']);
+    $cntc->addChild('cntc_phn_nbr', $values['contact_phone']);
+    $this->addChild($cntc, 'cntc_extn_nbr', $values['contact_ext']);
+    $cntc->addChild('cntc_email_area', $values['contact_email']);
+
+    $return = $craFile->addChild('Return');
+    $t4 = $return->addChild('T4A');
 
     while ($dao->fetch()) {
       $totalSlips++;
@@ -397,7 +475,7 @@ class CRM_T4Ageneration_Form_GenerateXML extends CRM_Core_Form {
       }
 
       $slip->addChild('bn', $values['business_number']);
-      $slip->addChild('rpt_tcd', 'O');
+      $slip->addChild('rpt_tcd', $values['report_type']);
 
       $other = $slip->addChild('OTH_INFO');
       $other->addChild('brsy_amt', $dao->total);
