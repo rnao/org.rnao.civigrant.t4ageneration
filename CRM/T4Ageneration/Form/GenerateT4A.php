@@ -23,46 +23,49 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
     $programs = CRM_Grant_BAO_GrantProgram::getGrantPrograms();
     // add form elements
     $element = $this->add(
-        'select', // field type
-        'grant_program', // field name
-        ts('Grant Program'), // field label
-        $programs, // list of options
-        true // is required
+      'select', // field type
+      'grant_program', // field name
+      ts('Grant Program'), // field label
+      $programs, // list of options
+      true // is required
     );
     $element->setMultiple(TRUE);
 
     $this->add(
-        'date',
-        'start_date',
-        ts('Payment Start Date'),
-        array (
-            'maxYear' => date('Y'),
-            'addEmptyOption' => TRUE,
-        )
+      'date',
+      'start_date',
+      ts('Payment Start Date'),
+      array (
+        'maxYear' => date('Y'),
+        'addEmptyOption' => TRUE,
+      )
     );
     $this->add(
-        'date',
-        'end_date',
-        ts('Payment End Date'),
-        array (
-            'maxYear' => date('Y'),
-            'addEmptyOption' => TRUE,
-        )
+      'date',
+      'end_date',
+      ts('Payment End Date'),
+      array (
+        'maxYear' => date('Y'),
+        'addEmptyOption' => TRUE,
+      )
     );
 
+    $this->add('text', 't4a_contact_id', ts('Contact IDs'), null);
+
     $this->addButtons(array(
-        array(
-            'type' => 'submit',
-            'name' => ts('Submit'),
-            'isDefault' => TRUE,
-        ),
+      array(
+        'type' => 'submit',
+        'name' => ts('Submit'),
+        'isDefault' => TRUE,
+      ),
     ));
 
     // export form elements
     $this->assign('elementNames', $this->getRenderableElementNames());
 
     $this->assign('helpElements', array(
-        't4a_min_payment' => 1,
+      't4a_min_payment' => 1,
+      't4a_contact_id' => 1,
     ));
   }
 
@@ -91,9 +94,9 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
 
     // Get payment status ID
     $params = array(
-        'version' => 3,
-        'sequential' => 1,
-        'name' => 'grant_payment_status',
+      'version' => 3,
+      'sequential' => 1,
+      'name' => 'grant_payment_status',
     );
     $result = civicrm_api('OptionGroup', 'get', $params);
     if ($result['is_error'] || empty($result['values'])) {
@@ -101,10 +104,10 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
     }
     $optionID = $result['values'][0]['id'];
     $params = array(
-        'version' => 3,
-        'sequential' => 1,
-        'option_group_id' => $optionID,
-        'name' => 'Printed',
+      'version' => 3,
+      'sequential' => 1,
+      'option_group_id' => $optionID,
+      'name' => 'Printed',
     );
     $result = civicrm_api('OptionValue', 'get', $params);
     if ($result['is_error'] || empty($result['values'])) {
@@ -114,10 +117,10 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
 
     // Reprinted payment status
     $params = array(
-        'version' => 3,
-        'sequential' => 1,
-        'option_group_id' => $optionID,
-        'name' => 'Reprinted',
+      'version' => 3,
+      'sequential' => 1,
+      'option_group_id' => $optionID,
+      'name' => 'Reprinted',
     );
     $result = civicrm_api('OptionValue', 'get', $params);
     if (!empty($result['values'])) {
@@ -137,18 +140,23 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
     $select = "select * from ";
     $count = "select count(1) from ";
     $query = "(select a.contact_id as id, a.currency, sum(a.amount) as total_amount from
-(select distinct p.id, p.contact_id, p.currency, p.payment_created_date, p.amount from civicrm_payment p
-inner join civicrm_entity_payment ep on p.id = ep.payment_id and ep.entity_table = 'civicrm_grant'
-inner join civicrm_grant g on ep.entity_id = g.id
-where g.grant_program_id in ($programID) and p.payment_status_id in ($paid) ";
+        (select distinct p.id, p.contact_id, p.currency, p.payment_created_date, p.amount from civicrm_payment p
+        inner join civicrm_entity_payment ep on p.id = ep.payment_id and ep.entity_table = 'civicrm_grant'
+        inner join civicrm_grant g on ep.entity_id = g.id
+        where g.grant_program_id in ($programID) and p.payment_status_id in ($paid) ";
 
-    if (isset ($startDate)) {
+    if (isset($startDate)) {
       $query .= "and p.payment_date >= '" . $startDate . "' and p.payment_date <= '" . $endDate . "' ";
     }
 
+    // Filter by contact
+    if (isset($values['t4a_contact_id']) && $values['t4a_contact_id'] != '') {
+      $query .= "AND p.contact_id in (" . $values['t4a_contact_id'] . ') ';
+    }
+
     $query .= ") a
-group by a.contact_id) b
-WHERE b.total_amount > $minAmount";
+        group by a.contact_id) b
+        WHERE b.total_amount > $minAmount";
 
     $daoCount = CRM_Grant_DAO_Grant::singleValueQuery($count . $query); // Surely there's a better way of doing this?
 
@@ -288,13 +296,13 @@ WHERE b.total_amount > $minAmount";
     }
 
     $output = file_put_contents(
-        $pdf_filename,
-        CRM_Utils_PDF_Utils::html2pdf(
-            $html,
-            $fileName,
-            TRUE,
-            $format
-        )
+      $pdf_filename,
+      CRM_Utils_PDF_Utils::html2pdf(
+        $html,
+        $fileName,
+        TRUE,
+        $format
+      )
     );
     return $fileName;
   }

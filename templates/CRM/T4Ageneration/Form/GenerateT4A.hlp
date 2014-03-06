@@ -30,3 +30,10 @@
     E.g. 500 will only generate T4As for contacts who have been paid $500 or more.{/ts}
   </p>
 {/htxt}
+
+{htxt id="t4a_contact_id"}
+  <p>
+    {ts}The contact ID(s) (comma-separated) of contacts you want included.<br />
+      Leaving this blank will include every contact.{/ts}
+  </p>
+{/htxt}
