@@ -160,93 +160,97 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
 
     $daoCount = CRM_Grant_DAO_Grant::singleValueQuery($count . $query); // Surely there's a better way of doing this?
 
-    for ($i=0; $i<$daoCount; $i=$i+$maxLimit) {
-      $dao = CRM_Grant_DAO_Grant::executeQuery($select . $query." LIMIT $i, $maxLimit");
-      $grantPayment = $payment_details = $amountsTotal = $details = array();
-      while($dao->fetch()) {
-        if (isset($amountsTotal[$dao->id])) {
-          $amountsTotal[$dao->id] += $dao->total_amount;
+    if ($daoCount > 0) {
+      for ($i=0; $i<$daoCount; $i=$i+$maxLimit) {
+        $dao = CRM_Grant_DAO_Grant::executeQuery($select . $query." LIMIT $i, $maxLimit");
+        $grantPayment = $payment_details = $amountsTotal = $details = array();
+        while($dao->fetch()) {
+          if (isset($amountsTotal[$dao->id])) {
+            $amountsTotal[$dao->id] += $dao->total_amount;
+          }
+          else {
+            $amountsTotal[$dao->id] = $dao->total_amount;
+          }
+
+          // Aggregate payments per contact id
+          if (!empty($details[$dao->id]['total_amount'])) {
+            $details[$dao->id]['total_amount'] += $dao->total_amount;
+          } else {
+            $details[$dao->id]['total_amount'] = $dao->total_amount;
+          }
+          $details[$dao->id]['currency'] = $dao->currency;
+
         }
-        else {
-          $amountsTotal[$dao->id] = $dao->total_amount;
+        $totalAmount = 0;
+        foreach ($details as $id => $value) {
+          $grantPayment[$id]['contact_id'] = $id;
+          $grantPayment[$id]['t4a_year'] = $values['t4a_year'];
+          $grantPayment[$id]['first_name'] = $this->getFirstName($id);
+          $grantPayment[$id]['last_name'] = $this->getLastName($id);
+          $grantPayment[$id]['payable_to_address'] =
+              CRM_Utils_Array::value('address', CRM_Grant_BAO_GrantProgram::getAddress($id, NULL, true));
+          $grantPayment[$id]['amount']  = $details[$id]['total_amount'];
+          $grantPayment[$id]['payer'] = $values['t4a_payer'];
+          $grantPayment[$id]['box'] = $values['t4a_box'];
+
+          // Get contact's SIN
+          $sinID = CRM_T4Ageneration_Form_GenerateXML::returnCustomFieldID();
+          $params = array('entityID' => $id, 'custom_' . $sinID => 1);
+          $sinResult = CRM_Core_BAO_CustomValueTable::getValues($params);
+          // Insert spaces in SIN
+          $sinArray = str_split($sinResult['custom_' . $sinID], 3);
+          $grantPayment[$id]['sin'] = implode(' ', $sinArray);
+
+          $totalAmount += $details[$id]['total_amount'];
         }
 
-        // Aggregate payments per contact id
-        if (!empty($details[$dao->id]['total_amount'])) {
-          $details[$dao->id]['total_amount'] += $dao->total_amount;
-        } else {
-          $details[$dao->id]['total_amount'] = $dao->total_amount;
-        }
-        $details[$dao->id]['currency'] = $dao->currency;
-
+        $grandTotal += $totalAmount;
+        $downloadNamePDF  =  check_plain('T4');
+        $downloadNamePDF .= '_'.date('Ymdhis');
+        $this->assign('grantPayment', $grantPayment);
+        $downloadNamePDF .= '.pdf';
+        $fileName = CRM_Utils_File::makeFileName($downloadNamePDF);
+        $files[] = $fileName = $this->makePDF($fileName, $grantPayment, 'Grant Payment T4');
       }
-      $totalAmount = 0;
-      foreach ($details as $id => $value) {
-        $grantPayment[$id]['contact_id'] = $id;
-        $grantPayment[$id]['t4a_year'] = $values['t4a_year'];
-        $grantPayment[$id]['first_name'] = $this->getFirstName($id);
-        $grantPayment[$id]['last_name'] = $this->getLastName($id);
-        $grantPayment[$id]['payable_to_address'] =
-            CRM_Utils_Array::value('address', CRM_Grant_BAO_GrantProgram::getAddress($id, NULL, true));
-        $grantPayment[$id]['amount']  = $details[$id]['total_amount'];
-        $grantPayment[$id]['payer'] = $values['t4a_payer'];
-        $grantPayment[$id]['box'] = $values['t4a_box'];
+      $config = CRM_Core_Config::singleton();
 
-        // Get contact's SIN
-        $sinID = CRM_T4Ageneration_Form_GenerateXML::returnCustomFieldID();
-        $params = array('entityID' => $id, 'custom_' . $sinID => 1);
-        $sinResult = CRM_Core_BAO_CustomValueTable::getValues($params);
-        // Insert spaces in SIN
-        $sinArray = str_split($sinResult['custom_' . $sinID], 3);
-        $grantPayment[$id]['sin'] = implode(' ', $sinArray);
+      $fileDAO =& new CRM_Core_DAO_File();
+      $fileDAO->uri           = $fileName;
+      $fileDAO->mime_type = 'application/zip';
+      $fileDAO->upload_date   = date('Ymdhis');
+      $fileDAO->save();
+      $grantPaymentFile = $fileDAO->id;
 
-        $totalAmount += $details[$id]['total_amount'];
+      $entityFileDAO =& new CRM_Core_DAO_EntityFile();
+      $entityFileDAO->entity_table = 'civicrm_contact';
+      $entityFileDAO->entity_id    = $_SESSION[ 'CiviCRM' ][ 'userID' ];
+      $entityFileDAO->file_id      = $grantPaymentFile;
+      $entityFileDAO->save();
+
+      //make Zip
+      $zipFile  =  check_plain('T4').'_'.date('Ymdhis').'.zip';
+      foreach($files as $file) {
+        $source[] = $config->customFileUploadDir.$file;
+      }
+      $zip = CRM_Financial_BAO_ExportFormat::createZip($source, $config->customFileUploadDir.$zipFile);
+
+      foreach($source as $sourceFile) {
+        unlink($sourceFile);
       }
 
-      $grandTotal += $totalAmount;
-      $downloadNamePDF  =  check_plain('T4');
-      $downloadNamePDF .= '_'.date('Ymdhis');
-      $this->assign('grantPayment', $grantPayment);
-      $downloadNamePDF .= '.pdf';
-      $fileName = CRM_Utils_File::makeFileName($downloadNamePDF);
-      $files[] = $fileName = $this->makePDF($fileName, $grantPayment, 'Grant Payment T4');
+      CRM_Core_Session::setStatus(ts('T4s have been generated.'), NULL, 'no-popup');
+
+      $directory = strstr($config->customFileUploadDir, 'sites');
+      global $base_url;
+      $filePath = $base_url . '/' . $directory . $zipFile;
+      $this->assign('download', $filePath);
+
+      // Redirect to XML file generation. Maybe redirecting back to the grant search page would be best,
+      // but we'd need a way to trigger the download ideally without overloading any templates
+      CRM_Utils_System::redirect(CRM_Utils_System::url( 'civicrm/grant/t4adownload', 'reset=1&download='.$zipFile));
+    } else {
+      CRM_Core_Session::setStatus(ts('No payments exist for the given time period, program and contacts.'), NULL, 'no-popup');
     }
-    $config = CRM_Core_Config::singleton();
-
-    $fileDAO =& new CRM_Core_DAO_File();
-    $fileDAO->uri           = $fileName;
-    $fileDAO->mime_type = 'application/zip';
-    $fileDAO->upload_date   = date('Ymdhis');
-    $fileDAO->save();
-    $grantPaymentFile = $fileDAO->id;
-
-    $entityFileDAO =& new CRM_Core_DAO_EntityFile();
-    $entityFileDAO->entity_table = 'civicrm_contact';
-    $entityFileDAO->entity_id    = $_SESSION[ 'CiviCRM' ][ 'userID' ];
-    $entityFileDAO->file_id      = $grantPaymentFile;
-    $entityFileDAO->save();
-
-    //make Zip
-    $zipFile  =  check_plain('T4').'_'.date('Ymdhis').'.zip';
-    foreach($files as $file) {
-      $source[] = $config->customFileUploadDir.$file;
-    }
-    $zip = CRM_Financial_BAO_ExportFormat::createZip($source, $config->customFileUploadDir.$zipFile);
-
-    foreach($source as $sourceFile) {
-      unlink($sourceFile);
-    }
-
-    CRM_Core_Session::setStatus(ts('T4s have been generated.'), NULL, 'no-popup');
-
-    $directory = strstr($config->customFileUploadDir, 'sites');
-    global $base_url;
-    $filePath = $base_url . '/' . $directory . $zipFile;
-    $this->assign('download', $filePath);
-
-    // Redirect to XML file generation. Maybe redirecting back to the grant search page would be best,
-    // but we'd need a way to trigger the download ideally without overloading any templates
-    CRM_Utils_System::redirect(CRM_Utils_System::url( 'civicrm/grant/t4adownload', 'reset=1&download='.$zipFile));
 
     parent::postProcess();
   }
