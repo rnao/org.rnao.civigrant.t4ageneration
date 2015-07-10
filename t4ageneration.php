@@ -120,7 +120,7 @@ function t4ageneration_civicrm_navigationMenu(&$params) {
       'attributes' => array (
         'label'      => 'Generate CRA XML File',
         'name'       => 'Generate CRA XML File',
-        'url'        => 'civicrm/grant/genxml&reset=1',
+        'url'        => 'civicrm/grant/genxml',
         'permission' => 'access CiviGrant',
         'operator'   => NULL,
         'separator'  => FALSE,
@@ -134,7 +134,7 @@ function t4ageneration_civicrm_navigationMenu(&$params) {
         'attributes' => array (
             'label'      => 'Generate T4A Forms',
             'name'       => 'Generate T4A Forms',
-            'url'        => 'civicrm/grant/gent4a&reset=1',
+            'url'        => 'civicrm/grant/gent4a',
             'permission' => 'access CiviGrant',
             'operator'   => NULL,
             'separator'  => FALSE,
