@@ -86,7 +86,7 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
   public function postProcess()
   {
     $grandTotal = 0;
-    CRM_Utils_System::flushCache('CRM_Grant_DAO_GrantPayment');
+    //CRM_Utils_System::flushCache();
     $values  = $this->controller->exportValues();
     $grantThresholds = CRM_Core_OptionGroup::values('grant_thresholds', TRUE);
     $maxLimit = $grantThresholds['Maximum number of checks per pdf file'];
@@ -190,7 +190,7 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
           $grantPayment[$id]['payable_to_address'] =
               CRM_Utils_Array::value('address', CRM_Grant_BAO_GrantProgram::getAddress($id, NULL, true));
           $grantPayment[$id]['amount']  = $details[$id]['total_amount'];
-          $grantPayment[$id]['payer'] = $values['t4a_payer'];
+          $grantPayment[$id]['payer'] = wordwrap($values['t4a_payer'], 20, '<br />');
           $grantPayment[$id]['box'] = $values['t4a_box'];
 
           // Get contact's SIN
@@ -214,14 +214,14 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
       }
       $config = CRM_Core_Config::singleton();
 
-      $fileDAO =& new CRM_Core_DAO_File();
+      $fileDAO = new CRM_Core_DAO_File();
       $fileDAO->uri           = $fileName;
       $fileDAO->mime_type = 'application/zip';
       $fileDAO->upload_date   = date('Ymdhis');
       $fileDAO->save();
       $grantPaymentFile = $fileDAO->id;
 
-      $entityFileDAO =& new CRM_Core_DAO_EntityFile();
+      $entityFileDAO = new CRM_Core_DAO_EntityFile();
       $entityFileDAO->entity_table = 'civicrm_contact';
       $entityFileDAO->entity_id    = $_SESSION[ 'CiviCRM' ][ 'userID' ];
       $entityFileDAO->file_id      = $grantPaymentFile;
@@ -232,7 +232,8 @@ class CRM_T4Ageneration_Form_GenerateT4A extends CRM_Core_Form
       foreach($files as $file) {
         $source[] = $config->customFileUploadDir.$file;
       }
-      $zip = CRM_Financial_BAO_ExportFormat::createZip($source, $config->customFileUploadDir.$zipFile);
+      $exportFormat = new CRM_Financial_BAO_ExportFormat_CSV();
+      $zip = $exportFormat->createZip($source, $config->customFileUploadDir.$zipFile);
 
       foreach($source as $sourceFile) {
         unlink($sourceFile);
